@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trip Planner – Julian Family Thanksgiving Road Trip 2026</title>
+<meta property="og:title" content="Julian Family Thanksgiving Road Trip 2026">
+<meta property="og:description" content="Nine days, about 2,700 miles: the day-by-day plan, the map and the photos as they come in.">
+<link rel="stylesheet" href="https://js.arcgis.com/4.31/esri/themes/light/main.css">
+<link rel="stylesheet" href="https://js.arcgis.com/calcite-components/2.13.2/calcite.css">
+<script type="module" src="https://js.arcgis.com/calcite-components/2.13.2/calcite.esm.js"></script>
+<script>
+/* ===== CONFIG – the only block you need to edit to repurpose the template =====
+   serviceUrl : blank = use trip-data.js (works anywhere, no sign-in)
+                or the Trip Planner FeatureServer URL (editable service for planners,
+                Public view URL for a shareable read-only app)
+   tripId     : which trip to load when the service holds several
+   Personal (just me)      : serviceUrl = editable service, appId set,  allowModes ["Planner","Family","Public"]
+   Shared with family      : serviceUrl = editable service or Family view, appId set, allowModes ["Family","Public"]
+   Tourism / public route  : serviceUrl = Public view (shared Everyone), appId "", allowModes ["Public"]   */
+window.CONFIG = {
+  serviceUrl: "",
+  tripId: "JULIAN-TG-2026",
+  appId: "",                       // ArcGIS OAuth client ID – only needed when serviceUrl is the secured (non-public) service
+  portalUrl: "https://www.arcgis.com",   // or your org URL, e.g. https://myorg.maps.arcgis.com
+  basemap: "topo-vector",
+  defaultMode: "Planner",          // Planner | Family | Public
+  allowModes: ["Planner","Family","Public"],   // set to ["Public"] for a public deployment
+  albumLabel: "Shared album"
+};
+</script>
+<script src="trip-data.js"></script>
+<style>
+  :root{
+    --ink:#0D1A2B; --navy:#152840; --green:#A6BF80; --sage:#C8D9C1; --sage-50:#EEF3EB; --red:#BF3030; --rose:#F3D6D6;
+    --calcite-color-brand:#152840; --calcite-color-brand-hover:#0D1A2B; --calcite-color-brand-press:#0D1A2B;
+    --calcite-font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;
+  }
+  html,body{margin:0;height:100%;font-family:var(--calcite-font-family);color:var(--ink)}
+  .mast{background:var(--ink);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:16px;border-bottom:4px solid var(--green)}
+  .mast h1{font-size:1.15rem;margin:0;font-weight:700;letter-spacing:.2px;flex:1;line-height:1.25}
+  .mast h1 em{color:var(--green);font-style:normal}
+  .mast small{display:block;font-weight:400;color:#cfd8e3;font-size:.78rem}
+  .rule{height:3px;background:var(--navy)}
+  #map{width:100%;height:100%}
+  .pane{padding:12px 14px 40px}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 14px 4px}
+  .kpi{background:var(--navy);color:#fff;border-radius:6px;padding:8px 9px}
+  .kpi b{display:block;font-size:1.15rem}
+  .kpi span{font-size:.7rem;color:#cfd8e3;text-transform:uppercase;letter-spacing:.4px}
+  .daychips{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 12px}
+  .daychips button{border:1px solid var(--navy);background:#fff;color:var(--navy);border-radius:14px;padding:3px 10px;font:inherit;font-size:.8rem;cursor:pointer}
+  .daychips button.on{background:var(--navy);color:#fff}
+  .day{border:1px solid #d5dde5;border-left:6px solid var(--c);border-radius:6px;margin:0 0 12px;background:#fff;box-shadow:3px 3px 0 var(--sage-50)}
+  .day header{display:flex;gap:10px;padding:10px 12px 6px;cursor:pointer}
+  .num{background:var(--navy);color:#fff;font-weight:700;border-radius:6px;min-width:34px;height:34px;display:grid;place-items:center}
+  .day h3{margin:0;font-size:.98rem}
+  .meta{font-size:.76rem;color:#4a5a6a}
+  .day p{margin:4px 12px 8px;font-size:.84rem;line-height:1.4}
+  .stops{list-style:none;margin:0;padding:0 12px 8px}
+  .stops li{display:grid;grid-template-columns:62px 12px 1fr auto;gap:8px;align-items:start;padding:5px 0;border-top:1px dashed #e3e8ee;font-size:.83rem;cursor:pointer}
+  .stops li:hover{background:var(--sage-50)}
+  .t{color:#4a5a6a;font-size:.75rem;padding-top:1px}
+  .dot{width:11px;height:11px;border-radius:50%;margin-top:3px;border:1.5px solid #fff;box-shadow:0 0 0 1px #9aa}
+  .chip{font-size:.66rem;border-radius:10px;padding:1px 7px;white-space:nowrap;border:1px solid transparent}
+  .s-Booked,.s-Confirmed,.s-Visited,.s-Done,.s-Paid,.s-Published,.s-Curated{background:var(--sage);color:#1f3a14}
+  .s-Planned,.s-Captured,.s-InProgress,.s-Ready{background:var(--sage-50);color:var(--navy);border-color:var(--sage)}
+  .s-Idea,.s-Alternate,.s-Placeholder,.s-Open,.s-Estimate,.s-Planning{background:#fff;color:var(--navy);border-color:#b8c4d0}
+  .s-ToBook,.s-Held,.s-Blocked{background:var(--rose);color:#6b1c1c}
+  .s-Skipped,.s-Closed,.s-Cancelled{background:#eee;color:#666;text-decoration:line-through}
+  .s-Overdue{background:var(--red);color:#fff}
+  details{margin:0 12px 10px;font-size:.8rem}
+  details summary{cursor:pointer;color:var(--navy);font-weight:600}
+  .over{margin:0 12px 10px;font-size:.78rem;background:var(--sage-50);border-radius:4px;padding:6px 8px}
+  .mcount{font-size:.7rem;color:var(--navy)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .tile{border:2px dashed #b8c4d0;border-radius:8px;padding:8px;min-height:120px;display:flex;flex-direction:column;gap:4px;background:#fff;font-size:.78rem;position:relative}
+  .tile.has{border-style:solid;border-color:var(--green)}
+  .tile h4{margin:0;font-size:.85rem}
+  .tile img,.tile video{width:100%;height:90px;object-fit:cover;border-radius:4px}
+  .tile .acts{margin-top:auto;display:flex;gap:4px;flex-wrap:wrap}
+  .tile .lock{position:absolute;top:6px;right:6px;font-size:.62rem}
+  .btn{font:inherit;font-size:.72rem;border:1px solid var(--navy);color:var(--navy);background:#fff;border-radius:4px;padding:2px 7px;cursor:pointer}
+  .btn.pri{background:var(--navy);color:#fff}
+  .bar{height:12px;background:var(--sage-50);border-radius:6px;overflow:hidden;display:flex}
+  .bar i{display:block;height:100%}
+  table{width:100%;border-collapse:collapse;font-size:.78rem}
+  td,th{padding:4px 3px;border-bottom:1px solid #e3e8ee;text-align:left;vertical-align:top}
+  td.n,th.n{text-align:right}
+  .task{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid #e3e8ee;font-size:.83rem}
+  .task.done span.txt{text-decoration:line-through;color:#7a8794}
+  .share-card{border:1px solid #d5dde5;border-radius:6px;padding:10px;margin-bottom:10px;background:#fff}
+  .share-card h4{margin:0 0 4px;font-size:.88rem}
+  .share-card p{margin:0 0 8px;font-size:.78rem;color:#4a5a6a}
+  .legend{background:#fff;padding:8px 10px;font-size:.72rem;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25);max-width:180px}
+  .legend div{display:flex;align-items:center;gap:6px;margin:2px 0}
+  .note{font-size:.74rem;color:#4a5a6a;background:var(--sage-50);border-left:3px solid var(--green);padding:6px 8px;margin:8px 0}
+  h2.sec{font-size:.95rem;margin:4px 0 8px;border-bottom:2px solid var(--green);padding-bottom:3px}
+  @media print{
+    .mast calcite-segmented-control,#map,#sections{display:none}
+    calcite-shell{position:static} .kpis{grid-template-columns:repeat(6,1fr)}
+  }
+</style>
+</head>
+<body>
+<calcite-shell content-behind>
+  <div slot="header">
+    <div class="mast">
+      <h1 id="title">Trip Planner<small id="subtitle"></small></h1>
+      <calcite-segmented-control id="mode" scale="s" appearance="outline-fill"></calcite-segmented-control>
+    </div>
+    <div class="rule"></div>
+  </div>
+  <calcite-shell-panel slot="panel-start" width-scale="l" resizable>
+    <calcite-panel>
+      <div class="kpis" id="kpis"></div>
+      <div style="padding:6px 14px 0">
+        <calcite-segmented-control id="sections" scale="s" width="full"></calcite-segmented-control>
+      </div>
+      <div class="pane" id="pane"></div>
+    </calcite-panel>
+  </calcite-shell-panel>
+  <div id="map"></div>
+</calcite-shell>
+<input type="file" id="file" hidden accept="image/*,video/*,audio/*,application/pdf">
+<calcite-alert id="toast" kind="success" auto-close auto-close-duration="fast" placement="bottom"><div slot="message" id="toastMsg"></div></calcite-alert>
+<script src="https://js.arcgis.com/4.31/"></script>
+<script src="app.js"></script>
+</body>
+</html>
