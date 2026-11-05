@@ -2,6 +2,18 @@
    Data comes from trip-data.js or from the Trip Planner feature service (CONFIG.serviceUrl). */
 (function () {
 "use strict";
+/* ---- start-up diagnostics: any failure is shown on the page, not just the console ---- */
+const step = (msg) => console.log("[trip] " + msg);
+function showFatal(where, err) {
+  console.error("[trip] FAILED at " + where, err);
+  const d = document.createElement("div");
+  d.style.cssText = "position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;background:#BF3030;color:#fff;padding:10px 14px;border-radius:6px;font:13px/1.4 system-ui";
+  d.textContent = "Trip Planner could not start (" + where + "): " + (err && (err.stack || err.message) || err);
+  document.body.appendChild(d);
+}
+window.addEventListener("error", (e) => showFatal("script error", e.error || e.message));
+window.addEventListener("unhandledrejection", (e) => showFatal("promise", e.reason));
+step("app.js loaded");
 const CFG = window.CONFIG;
 const DAY_COLORS = ["#0D1A2B","#0B5CAB","#00727A","#1E7B34","#A6BF80","#D97706","#BF3030","#5B2C83","#152840","#787878"];
 const CAT = {StartEnd:["Start / end","#0D1A2B"],Logistics:["Logistics","#152840"],Fuel:["Fuel / rest","#787878"],Meal:["Meal","#D97706"],
@@ -324,23 +336,38 @@ function wire() {
 require(["esri/Map", "esri/views/MapView", "esri/layers/GraphicsLayer", "esri/Graphic", "esri/layers/FeatureLayer", "esri/widgets/Home", "esri/widgets/Expand",
          "esri/identity/OAuthInfo", "esri/identity/IdentityManager"],
   async (Map, MapView, GraphicsLayer, G, FeatureLayer, Home, Expand, OAuthInfo, IdentityManager) => {
+  try {
+  step("modules ready");
   Graphic = G;
   // Sign-in for Planner/Family use against a secured service (ArcGIS or enterprise/SAML logins).
   // Leave CONFIG.appId blank for a public deployment that reads the Public view.
   if (CFG.appId) IdentityManager.registerOAuthInfos([new OAuthInfo({appId: CFG.appId, portalUrl: CFG.portalUrl || "https://www.arcgis.com", popup: false, flowType: "authorization-code"})]);
-  const EMPTY = {trip: {TripName: "Trip not available"}, days: [], stops: [], legs: [], media: [], bookings: [], tasks: [], budget: []};
-  const local = () => window.TRIP_DATA ? JSON.parse(JSON.stringify(window.TRIP_DATA)) : EMPTY;
-  try { D = CFG.serviceUrl ? await loadFromService(FeatureLayer) : local(); }
-  catch (e) { console.warn(e); D = local(); }
-  if (CFG.serviceUrl && !D.stops.length && !D.days.length) toast("No trip data came back – check the service URL, sharing and tripId.");
-  applyOverlay();
+  // Draw the map first so the page is never blank while data loads.
   lyrLegs = new GraphicsLayer({title: "Route legs"}); lyrStops = new GraphicsLayer({title: "Stops"}); lyrMedia = new GraphicsLayer({title: "Media moments"});
   view = new MapView({container: "map", map: new Map({basemap: CFG.basemap, layers: [lyrLegs, lyrMedia, lyrStops]}), center: [-96, 37.5], zoom: 4,
     popup: {dockEnabled: true, dockOptions: {position: "bottom-right", breakpoint: false}}});
   view.ui.add(new Home({view}), "top-left");
   view.ui.add(new Expand({view, content: legend(), expandIcon: "legend", expanded: window.innerWidth > 1100, expandTooltip: "Legend"}), "bottom-right");
-  header(); wire(); render();
+  step("map view created");
+  $("#pane").innerHTML = `<div class="note">Loading the trip…</div>`;
+
+  const EMPTY = {trip: {TripName: "Trip not available"}, days: [], stops: [], legs: [], media: [], bookings: [], tasks: [], budget: []};
+  const local = () => window.TRIP_DATA ? JSON.parse(JSON.stringify(window.TRIP_DATA)) : EMPTY;
+  const timeout = (ms) => new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms));
+  try { D = CFG.serviceUrl ? await Promise.race([loadFromService(FeatureLayer), timeout(20000)]) : local(); }
+  catch (e) {
+    console.warn("Trip data not loaded:", e);
+    D = local();
+    $("#pane").innerHTML = `<div class="note"><b>The trip data didn't load.</b> If this is the public app, the Public view must be shared with <b>Everyone</b>; if it is the planner app, sign in (CONFIG.appId). Also check serviceUrl ends in /FeatureServer and tripId matches.</div>`;
+  }
+  step("data ready: " + D.stops.length + " stops");
+  applyOverlay();
+  if (CFG.serviceUrl && !D.stops.length && !D.days.length) toast("No trip data came back – check the service URL, sharing and tripId.");
+  header(); step("header drawn");
+  wire(); render(); step("first render done");
   window.TripPlanner = {get data() { return D; }, summaryText, geojson, kml, csv, ics, render,
     set(m, d, s) { if (m) mode = m; if (d !== undefined) day = d; if (s) section = s; render(); }};
-});
+  } catch (err) { showFatal("start-up", err); }
+}, (err) => showFatal("loading ArcGIS modules", err));
+step("waiting for ArcGIS modules");
 })();
